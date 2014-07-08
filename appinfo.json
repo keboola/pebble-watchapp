@@ -1,0 +1,31 @@
+{
+    "appKeys": {
+        "DATA_REQUEST": 4,
+        "DATECHANGE": 1,
+        "DAYSTATS": 2,
+        "HEADING": 0,
+        "WEEKSTATS": 3
+    },
+    "capabilities": [
+        "configurable"
+    ],
+    "companyName": "petr@keboola.com",
+    "longName": "Keboola Stats",
+    "resources": {
+        "media": [
+            {
+                "file": "images/keboola_logo.png",
+                "menuIcon": true,
+                "name": "keboola_logo_menu",
+                "type": "png"
+            }
+        ]
+    },
+    "shortName": "Keboola Stats",
+    "uuid": "29fdfd12-3c08-463d-8f53-f9823d7a15fc",
+    "versionCode": 1,
+    "versionLabel": "1.0",
+    "watchapp": {
+        "watchface": false
+    }
+}
