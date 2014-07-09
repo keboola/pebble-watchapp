@@ -1,6 +1,7 @@
 var configuration,lastdata;
 Pebble.addEventListener("ready",
                         function(e) {
+                          setEndpoint();
                           configuration = {};                          
                           if (localStorage.configuration) 
                             configuration = JSON.parse(localStorage.configuration);
@@ -27,6 +28,34 @@ Pebble.addEventListener("ready",
                           sendAndStore(lastdata);                      
                          
                         });
+
+function setEndpoint()
+{
+  var req = new XMLHttpRequest();
+  var response;
+  req.open('GET', "https://connection.keboola.com/v2/storage", false);  
+  req.onload  = function (e) {
+    console.log ("onload triggered: ");
+    if (req.readyState == 4) {
+      if (req.status == 200 && req.responseText)
+      {       
+        response =  {};              
+        response = JSON.parse(req.responseText);
+        if(response.components)
+          response.components.forEach(function(component) {
+          if(component.id == "pebble")    
+            {
+            localStorage.endpoint = component.uri;
+            console.log("pebble backend url set to:" + localStorage.endpoint);
+            }
+        });
+      }
+    }
+  };
+  req.send(null);
+  
+}
+
 function sendAndStore(what)
 {
   console.log("sending " + JSON.stringify(what));
@@ -68,9 +97,7 @@ function myPercentFormat(number){
       var sign = res?res<0?-1:1:0;
       var signStr = "";
       if(sign > 0)
-        signStr = "+";
-      if(sign < 0)
-        signStr = "-";
+        signStr = "+";     
       return signStr + res.toString();
     }
   return number;
@@ -95,7 +122,7 @@ function fetchData()
   var heading, daystats, weekstats, datechange;
 
   
-  req.open('GET', "http://pebble-rc.kbc-devel-02.keboola.com/app_dev.php/pebble/stats", true);  
+  req.open('GET', localStorage.endpoint + "/stats", true);  
   req.setRequestHeader('X-StorageApi-Token', configuration.token);
   req.timeout = 60000;
   
