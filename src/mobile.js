@@ -95,7 +95,7 @@ function fetchData()
   var heading, daystats, weekstats, datechange;
 
   
-  req.open('GET', "http://tomas-pebble.kbc-devel-02.keboola.com/app_dev.php/pebble/stats", true);  
+  req.open('GET', "http://pebble-rc.kbc-devel-02.keboola.com/app_dev.php/pebble/stats", true);  
   req.setRequestHeader('X-StorageApi-Token', configuration.token);
   req.timeout = 60000;
   

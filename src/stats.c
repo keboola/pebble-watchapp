@@ -8,7 +8,7 @@ static TextLayer *date_changed_layer;
 static AppTimer *timer = NULL;
 //MAX CHARS ALLOWED - 30
 
-#define SYNC_TIME_MS 30 * 1000
+#define SYNC_TIME_MS 1000 * 60 * 2
 #define STATS_BUFFER_SIZE PERSIST_STRING_MAX_LENGTH + 1
 #define BUFFER_SIZE PERSIST_STRING_MAX_LENGTH + 1
   
@@ -127,7 +127,7 @@ static void sync_tuple_changed_callback(const uint32_t key, const Tuple* new_tup
 static void update_daystats_layer_callback(Layer *layer, GContext* ctx) {
   //APP_LOG(APP_LOG_LEVEL_INFO, "update daystats layer");
   update_text_layer(layer, ctx, daystats_buffer,
-                    FONT_KEY_ROBOTO_CONDENSED_21  ,
+                    FONT_KEY_ROBOTO_CONDENSED_21    ,
                     GTextOverflowModeWordWrap  ,
                     GTextAlignmentLeft);  
 }
@@ -137,7 +137,7 @@ static void update_daystats_layer_callback(Layer *layer, GContext* ctx) {
 static void update_weekstats_layer_callback(Layer *layer, GContext* ctx) {
   // APP_LOG(APP_LOG_LEVEL_INFO, "update weekstats layer");
   update_text_layer(layer, ctx, weekstats_buffer,
-                    FONT_KEY_ROBOTO_CONDENSED_21     ,
+                    FONT_KEY_ROBOTO_CONDENSED_21       ,
                     GTextOverflowModeWordWrap  ,
                     GTextAlignmentLeft);  
 }
