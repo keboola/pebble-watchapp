@@ -15,10 +15,10 @@ Pebble.addEventListener("ready",
                             lastdata = JSON.parse(localStorage.lastdata);
                             else
                             lastdata = {                              
-                              "heading": "N/A",
-                              "daystats": "N/A",
-                              "weekstats":"N/A",
-                              "datechange":"N/A"
+                              "heading": " ",
+                              "daystats": "No Data",
+                              "weekstats":" ",
+                              "datechange":" "
                               
                             }; 
                           
@@ -115,7 +115,11 @@ function fetchData()
 {
   //if we setup active connection to off we do nothing OR we dont have token setup yet
   if(configuration.connection !== "on" || configuration.token === "")
-    return;    
+    {
+      if ( configuration.token === "")
+        Pebble.showSimpleNotificationOnPebble("Connection Error", "Storage api token is not set");
+      return;    
+    }
  
   var req = new XMLHttpRequest();
   var response;
@@ -141,8 +145,10 @@ function fetchData()
         
         heading = NA(response.heading);
         datechange = new Date(response.changed).toLocaleString();
-        daystats =  NA(response.title1) + " (" + myPercentFormat(NA(response.percent1))  + "%)\n" + NA(response.number1);
-        weekstats = NA(response.title2) + " (" + myPercentFormat(NA(response.percent2))  + "%)\n" + NA(response.number2);
+        var unit1 = response.unit1 ?  response.unit1 : "";
+        var unit2 = response.unit2 ?  response.unit2 : "";
+        daystats =  NA(response.title1) + " (" + myPercentFormat(NA(response.percent1))  + "%)\n" + NA(response.number1) + unit1;
+        weekstats = NA(response.title2) + " (" + myPercentFormat(NA(response.percent2))  + "%)\n" + NA(response.number2) + unit2;
         
         var maxsize= 256;
         sendAndStore({
