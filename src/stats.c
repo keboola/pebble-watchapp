@@ -8,7 +8,7 @@ static TextLayer *date_changed_layer;
 static AppTimer *timer = NULL;
 //MAX CHARS ALLOWED - 30
 
-#define SYNC_TIME_MS 1000 * 60 * 2
+#define SYNC_TIME_MS 1000 * 60 * 0.5
 #define STATS_BUFFER_SIZE PERSIST_STRING_MAX_LENGTH + 1
 #define BUFFER_SIZE PERSIST_STRING_MAX_LENGTH + 1
   
@@ -43,7 +43,32 @@ static void logrect(const char * title, GRect rect)
 #define  WEEKSTATS_KEY  0x3
 #define  DATA_REQUEST_KEY 0x4
  
-
+//******************RESIZE LAYERS*****************************************
+//resize layers dynamically according to text set
+static void resize_stats_layers()
+{  
+  //day stats resize
+  GFont dayfont = fonts_get_system_font(FONT_KEY_ROBOTO_CONDENSED_21 );
+  GRect daybounds = layer_get_frame(daystats_layer);  
+  GSize daymaxsize = graphics_text_layout_get_content_size(daystats_buffer, dayfont, daybounds, GTextOverflowModeWordWrap, GTextAlignmentLeft);
+  GRect daynewbounds = GRect(daybounds.origin.x, daybounds.origin.y, 158, daymaxsize.h );
+  layer_set_frame(daystats_layer, daynewbounds);
+    
+  
+  //week stats resize
+  GFont weekfont = fonts_get_system_font(FONT_KEY_ROBOTO_CONDENSED_21 );
+  GRect weekbounds = layer_get_frame(weekstats_layer);  
+  GSize weekmaxsize = graphics_text_layout_get_content_size(weekstats_buffer, weekfont, weekbounds, GTextOverflowModeWordWrap, GTextAlignmentLeft);
+  int16_t newx = 0;  
+  int16_t minHeightDistance = 10;
+  int16_t newy = daybounds.origin.y + daymaxsize.h +  minHeightDistance;
+  
+  GRect weeknewbounds = GRect(newx, newy, 158, weekmaxsize.h );
+  layer_set_frame(weekstats_layer, weeknewbounds);
+  //logrect(weekstats_buffer, weeknewbounds);
+  
+}
+  
 //******************UPDATE LAYER WITH TEXT*****************************************
 static void update_text_layer(Layer *layer, GContext* ctx, const char* text
                               ,const char * pfont 
@@ -56,7 +81,7 @@ static void update_text_layer(Layer *layer, GContext* ctx, const char* text
   GSize maxsize = graphics_text_layout_get_content_size(text, font, bounds, overflowmode, alignment);
   GRect textbox = GRect(0,0,maxsize.w,maxsize.h);
   //create GRect that aligns in the center of the frame
-  grect_align(&textbox, &GRect(0, 0, bounds.size.w, bounds.size.h), GAlignCenter, false );
+  grect_align(&textbox, &GRect(0, 0, bounds.size.w, bounds.size.h), GAlignTopLeft, false );
      
   graphics_context_set_text_color(ctx, GColorBlack);
   graphics_draw_text(ctx,
@@ -66,6 +91,8 @@ static void update_text_layer(Layer *layer, GContext* ctx, const char* text
       overflowmode,
       alignment,
       NULL);
+ 
+ 
 }
 
 //******************READ STRING DATA from storage**************************************
@@ -112,15 +139,19 @@ static void sync_tuple_changed_callback(const uint32_t key, const Tuple* new_tup
       snprintf(daystats_buffer, STATS_BUFFER_SIZE,"%s", new_tuple->value->cstring);
       layer_mark_dirty(daystats_layer);
       writeStringToStorage(DAYSTATS_KEY, new_tuple->value->cstring);
+      resize_stats_layers();
       break;
 
     case WEEKSTATS_KEY:
       APP_LOG(APP_LOG_LEVEL_INFO, "tuple_changed: WEEKSTATS_KEY %s", new_tuple->value->cstring);      
       snprintf(weekstats_buffer, STATS_BUFFER_SIZE ,"%s", new_tuple->value->cstring);      
       layer_mark_dirty(weekstats_layer);
-      writeStringToStorage(WEEKSTATS_KEY, new_tuple->value->cstring);
+      writeStringToStorage(WEEKSTATS_KEY, new_tuple->value->cstring);   
+      resize_stats_layers();
       break;
   }
+  
+  
 }
 
 //******************RENDER DAYSTATS*****************************************
@@ -198,7 +229,7 @@ static void window_load(Window *window)
   //APP_LOG(APP_LOG_LEVEL_INFO, "height %d", bounds.size.h);
   int heading_vyska = 22;
   int date_vyska = heading_vyska;
-  int total_vyska = 168;
+  int total_vyska = 164;
   int stats_vyska = (total_vyska - heading_vyska - date_vyska) / 2;
   
   int current_y = 0;
@@ -211,7 +242,7 @@ static void window_load(Window *window)
   text_layer_set_overflow_mode(heading_layer, GTextOverflowModeFill );  
   text_layer_set_text(heading_layer, "uuu");
   
-  current_y += heading_vyska;
+  current_y += heading_vyska + 6;
   
   //DAY STATS LAYER  
   daystats_layer = layer_create(GRect(0, current_y, 144, stats_vyska));
