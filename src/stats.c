@@ -1,24 +1,39 @@
 #include <pebble.h>
 
-static Window *window;
-static TextLayer *heading_layer;
-static Layer  *daystats_layer;
-static Layer *weekstats_layer;
-static TextLayer *date_changed_layer;
-static AppTimer *timer = NULL;
-//MAX CHARS ALLOWED - 30
-
 #define SYNC_TIME_MS 1000 * 60 * 0.5
 #define STATS_BUFFER_SIZE PERSIST_STRING_MAX_LENGTH + 1
-#define BUFFER_SIZE PERSIST_STRING_MAX_LENGTH + 1
+#define BUFFER_SIZE PERSIST_STRING_MAX_LENGTH + 1  
+
   
-char daystats_buffer[STATS_BUFFER_SIZE] = "123";
-char weekstats_buffer[STATS_BUFFER_SIZE] = "  ";
-char heading_buffer[STATS_BUFFER_SIZE] = "  ";
-char datechange_buffer[STATS_BUFFER_SIZE] = "  ";
+#define  DATA_REQUEST_KEY 0x400
+  
+static Window *window;
+static TextLayer *heading_layer;
 
+struct TextRow 
+{
+  TextLayer * text_layer;
+  char text[STATS_BUFFER_SIZE];
+  enum {HEADER,ROW,CHANGEDATE} format;
+  
+};
+
+static struct TextRow matrix[] = {
+  {NULL, "FIRST ROW: 123456 KC", HEADER}, //row 1 - HEADER
+  {NULL, "SECOND: 12345678 KC", ROW}, //row 2
+  {NULL, "THIRD: 123124920 KC", ROW}, //row 3
+  {NULL, "FOURTH: 123333 KC", ROW}, //row 4
+  {NULL, "FIFTH: 22 %", ROW}, //row 5
+  {NULL, "SIXTH: 44%", ROW},  //row 6  
+  {NULL, "SEVENTH: date changed", CHANGEDATE}  //row 7  
+};
+
+static const int rows_count = sizeof(matrix)/sizeof(struct TextRow);
+
+
+static AppTimer *timer = NULL;
+//MAX CHARS ALLOWED - 30
 static AppSync sync;
-
 
   
 const int inbound_size = BUFFER_SIZE;
@@ -27,152 +42,7 @@ const int inbound_size = BUFFER_SIZE;
 static uint8_t sync_buffer[BUFFER_SIZE];
 const bool animated = true;
 
-static void logrect(const char * title, GRect rect)
-{
-  APP_LOG(APP_LOG_LEVEL_INFO,"%s: sirka:%d, vyska:%d, x:%d, y:%d", title,
-          rect.size.w, rect.size.h,
-          rect.origin.x, rect.origin.y);
-  
-}
-
-
-
-#define  HEADING_KEY  0x0
-#define  DATECHANGE_KEY  0x1
-#define  DAYSTATS_KEY  0x2
-#define  WEEKSTATS_KEY  0x3
-#define  DATA_REQUEST_KEY 0x4
- 
-//******************RESIZE LAYERS*****************************************
-//resize layers dynamically according to text set
-static void resize_stats_layers()
-{  
-  //day stats resize
-  GFont dayfont = fonts_get_system_font(FONT_KEY_ROBOTO_CONDENSED_21 );
-  GRect daybounds = layer_get_frame(daystats_layer);  
-  GSize daymaxsize = graphics_text_layout_get_content_size(daystats_buffer, dayfont, daybounds, GTextOverflowModeWordWrap, GTextAlignmentLeft);
-  GRect daynewbounds = GRect(daybounds.origin.x, daybounds.origin.y, 158, daymaxsize.h );
-  layer_set_frame(daystats_layer, daynewbounds);
-    
-  
-  //week stats resize
-  GFont weekfont = fonts_get_system_font(FONT_KEY_ROBOTO_CONDENSED_21 );
-  GRect weekbounds = layer_get_frame(weekstats_layer);  
-  GSize weekmaxsize = graphics_text_layout_get_content_size(weekstats_buffer, weekfont, weekbounds, GTextOverflowModeWordWrap, GTextAlignmentLeft);
-  int16_t newx = 0;  
-  int16_t minHeightDistance = 10;
-  int16_t newy = daybounds.origin.y + daymaxsize.h +  minHeightDistance;
-  
-  GRect weeknewbounds = GRect(newx, newy, 158, weekmaxsize.h );
-  layer_set_frame(weekstats_layer, weeknewbounds);
-  //logrect(weekstats_buffer, weeknewbounds);
-  
-}
-  
-//******************UPDATE LAYER WITH TEXT*****************************************
-static void update_text_layer(Layer *layer, GContext* ctx, const char* text
-                              ,const char * pfont 
-                              ,GTextOverflowMode overflowmode 
-                              ,GTextAlignment alignment) {
-  GRect bounds = layer_get_frame(layer);  
-  GFont font = fonts_get_system_font(pfont ); 
-   
-  //Obtain the maximum size that text occupies within a given rectangular constraint
-  GSize maxsize = graphics_text_layout_get_content_size(text, font, bounds, overflowmode, alignment);
-  GRect textbox = GRect(0,0,maxsize.w,maxsize.h);
-  //create GRect that aligns in the center of the frame
-  grect_align(&textbox, &GRect(0, 0, bounds.size.w, bounds.size.h), GAlignTopLeft, false );
-     
-  graphics_context_set_text_color(ctx, GColorBlack);
-  graphics_draw_text(ctx,
-      text,
-      font,    
-      textbox,
-      overflowmode,
-      alignment,
-      NULL);
- 
- 
-}
-
-//******************READ STRING DATA from storage**************************************
-static const char * readStringFromStorage(uint32_t key, char* buffer, const char* default_value)
-{ 
-  
-  //APP_LOG(APP_LOG_LEVEL_INFO, "read buffer before %s", buffer);    
-  int result = persist_read_string(key, buffer, PERSIST_STRING_MAX_LENGTH);
-  //APP_LOG(APP_LOG_LEVEL_INFO, "read buffer AFTER exists:%s, key:%u, %s",(result != E_DOES_NOT_EXIST) ? "True" : "False", (unsigned int)key, buffer);    
-  if (result == E_DOES_NOT_EXIST)
-    return default_value;
-  else
-    return buffer;
-}
-
-static void writeStringToStorage(uint32_t key, const char * what)
-{
-  int result = persist_write_string(key, what);
-  //APP_LOG(APP_LOG_LEVEL_INFO, "Written %d bytes into storage of key %u: %s", result, (unsigned int)key, what);        
-  
-}
-
-//******************TUPLE CHANGE CALLBACK*****************************************
-static void sync_tuple_changed_callback(const uint32_t key, const Tuple* new_tuple, const Tuple* old_tuple, void* context) {
-  switch (key) {
-    
-    case HEADING_KEY:
-      APP_LOG(APP_LOG_LEVEL_INFO, "tuple_changed: HEADING %s", new_tuple->value->cstring);        
-      text_layer_set_text(heading_layer, new_tuple->value->cstring);   
-      writeStringToStorage(HEADING_KEY, new_tuple->value->cstring);
-      //text_layer_set_text(heading_layer, "Heading 9012345678901234567890");
-      //layer_mark_dirty(text_layer_get_layer(heading_layer));
-      break;
-    
-    case DATECHANGE_KEY:
-      APP_LOG(APP_LOG_LEVEL_INFO, "tuple_changed: DATECHANGE_KEY %s", new_tuple->value->cstring);     
-      text_layer_set_text(date_changed_layer, new_tuple->value->cstring);    
-      writeStringToStorage(DATECHANGE_KEY, new_tuple->value->cstring);
-              
-      break;
-    
-    case DAYSTATS_KEY:      
-      APP_LOG(APP_LOG_LEVEL_INFO, "tuple_changed: DAYSTATS_KEY %s", new_tuple->value->cstring);     
-      snprintf(daystats_buffer, STATS_BUFFER_SIZE,"%s", new_tuple->value->cstring);
-      layer_mark_dirty(daystats_layer);
-      writeStringToStorage(DAYSTATS_KEY, new_tuple->value->cstring);
-      resize_stats_layers();
-      break;
-
-    case WEEKSTATS_KEY:
-      APP_LOG(APP_LOG_LEVEL_INFO, "tuple_changed: WEEKSTATS_KEY %s", new_tuple->value->cstring);      
-      snprintf(weekstats_buffer, STATS_BUFFER_SIZE ,"%s", new_tuple->value->cstring);      
-      layer_mark_dirty(weekstats_layer);
-      writeStringToStorage(WEEKSTATS_KEY, new_tuple->value->cstring);   
-      resize_stats_layers();
-      break;
-  }
-  
-  
-}
-
-//******************RENDER DAYSTATS*****************************************
-static void update_daystats_layer_callback(Layer *layer, GContext* ctx) {
-  //APP_LOG(APP_LOG_LEVEL_INFO, "update daystats layer");
-  update_text_layer(layer, ctx, daystats_buffer,
-                    FONT_KEY_ROBOTO_CONDENSED_21    ,
-                    GTextOverflowModeWordWrap  ,
-                    GTextAlignmentLeft);  
-}
-
-
-//******************RENDER WEEKSTATS*****************************************
-static void update_weekstats_layer_callback(Layer *layer, GContext* ctx) {
-  // APP_LOG(APP_LOG_LEVEL_INFO, "update weekstats layer");
-  update_text_layer(layer, ctx, weekstats_buffer,
-                    FONT_KEY_ROBOTO_CONDENSED_21       ,
-                    GTextOverflowModeWordWrap  ,
-                    GTextAlignmentLeft);  
-}
-
+//********************************TRANSLATE ERROR************************************************
 // http://stackoverflow.com/questions/21150193/logging-enums-on-the-pebble-watch/21172222#21172222
 char *translate_error(AppMessageResult result) {
   switch (result) {
@@ -199,6 +69,68 @@ static void sync_error_callback(DictionaryResult dict_error, AppMessageResult ap
   APP_LOG(APP_LOG_LEVEL_DEBUG, "App Message Sync Error: %s", translate_error(app_message_error));
 }
 
+//**************************LOGRECT***********************************************
+static void logrect(const char * title, GRect rect)
+{
+  APP_LOG(APP_LOG_LEVEL_INFO,"%s: sirka:%d, vyska:%d, x:%d, y:%d", title,
+          rect.size.w, rect.size.h,
+          rect.origin.x, rect.origin.y);
+  
+}
+
+//******************READ STRING DATA from storage**************************************
+static const char * readStringFromStorage(uint32_t key, char* buffer, const char* default_value)
+{ 
+  
+  //APP_LOG(APP_LOG_LEVEL_INFO, "read buffer before %s", buffer);    
+  int result = persist_read_string(key, buffer, PERSIST_STRING_MAX_LENGTH);
+  //APP_LOG(APP_LOG_LEVEL_INFO, "read buffer AFTER exists:%s, key:%u, %s",(result != E_DOES_NOT_EXIST) ? "True" : "False", (unsigned int)key, buffer);    
+  if (result == E_DOES_NOT_EXIST)
+    return default_value;
+  else
+    return buffer;
+}
+
+//*************************************WRITE string to storage************************************
+static void writeStringToStorage(uint32_t key, const char * what)
+{
+  int result = persist_write_string(key, what);
+  //APP_LOG(APP_LOG_LEVEL_INFO, "Written %d bytes into storage of key %u: %s", result, (unsigned int)key, what);        
+  
+}
+
+
+static int current_page = 0;
+//****************************CURRENT PAGE ROW************************************
+//returns index of the row within the current page
+//returns -1 if the rowid does not belong to the current page
+static int currentPageRow(int rowid)
+{
+  int rownumbers = rows_count -1; //minus the bottom date change row
+  int page = rownumbers / rowid;
+  if(page != current_page)
+    return -1;
+  return current_page % page;
+}
+
+
+//******************TUPLE CHANGE CALLBACK*****************************************
+static void sync_tuple_changed_callback(const uint32_t key, const Tuple* new_tuple, const Tuple* old_tuple, void* context) {
+    return;
+  
+      APP_LOG(APP_LOG_LEVEL_INFO, "tuple_changed: %d: %s", (int)key, new_tuple->value->cstring);     
+      //just a paraniod safety check
+      if(key > 100)
+        return;
+      
+      writeStringToStorage(key, new_tuple->value->cstring);
+      int rowid = currentPageRow(key);
+      if(rowid > -1)
+      {        
+        text_layer_set_text(heading_layer, new_tuple->value->cstring);
+      }
+      //layer_mark_dirty(text_layer_get_layer(heading_layer));
+}
 
 //*********************** INIT COMMUNICATION WITH PHONE BY SENDING DUMMY COMMAND *******************
 static void send_cmd(void) {  
@@ -210,16 +142,23 @@ static void send_cmd(void) {
   if (iter == NULL) {
     return;
   }
-
   dict_write_tuplet(iter, &value);
   dict_write_end(iter);
-
-  app_message_outbox_send();
-  
-  timer = app_timer_register(SYNC_TIME_MS, (AppTimerCallback) send_cmd, NULL);
-  
+  app_message_outbox_send();  
+  timer = app_timer_register(SYNC_TIME_MS, (AppTimerCallback) send_cmd, NULL);  
 }
 
+//**********************GET*TEXT*ROW*BY*INDEX*******************************
+struct TextRow* getTextRowById(int idx)
+{
+  if (idx >= rows_count)
+  {
+      APP_LOG(APP_LOG_LEVEL_ERROR,"ERROR text row index out of bounds:%d, rows_count=%d", idx, rows_count);
+      return NULL;
+  }
+  
+  return &matrix[idx];
+}
 //*********************** LOAD WINDOW *******************
 static void window_load(Window *window)
 {
@@ -229,61 +168,38 @@ static void window_load(Window *window)
   //APP_LOG(APP_LOG_LEVEL_INFO, "height %d", bounds.size.h);
   int heading_vyska = 22;
   int date_vyska = heading_vyska;
-  int total_vyska = 164;
-  int stats_vyska = (total_vyska - heading_vyska - date_vyska) / 2;
-  
+  int total_vyska = 168; 
   int current_y = 0;
-  heading_layer = text_layer_create(GRect(0, current_y, 144, heading_vyska));
-  text_layer_set_text_color(heading_layer, GColorWhite);
-  text_layer_set_background_color(heading_layer, GColorBlack);
-  text_layer_set_font(heading_layer, fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD ));
-  text_layer_set_text_alignment(heading_layer, GTextAlignmentCenter);
-  layer_add_child(window_layer, text_layer_get_layer(heading_layer));
-  text_layer_set_overflow_mode(heading_layer, GTextOverflowModeFill );  
-  text_layer_set_text(heading_layer, "uuu");
+  int vyskaRiadku = total_vyska / rows_count;
   
-  current_y += heading_vyska + 6;
+  for(int i = 0; i < rows_count; i++, current_y += vyskaRiadku)
+    {
+    struct TextRow *row = getTextRowById(i);
+    //read cached value and store it to row->text, otherwise return default value
+    const char * inittext = row->text; //readStringFromStorage(i, row->text,row->text);
+    TextLayer * tlayer = text_layer_create(GRect(0, current_y, 144, vyskaRiadku));     
+    if(row->format == HEADER || row->format == CHANGEDATE)
+    {
+      text_layer_set_text_color(tlayer, GColorWhite);
+      text_layer_set_background_color(tlayer, GColorBlack);
+    }   
+    text_layer_set_font(tlayer, fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD ));
+    text_layer_set_text_alignment(tlayer, GTextAlignmentCenter);
+    text_layer_set_overflow_mode(tlayer, GTextOverflowModeFill ); 
+    text_layer_set_text(tlayer, inittext);
+    layer_add_child(window_layer, text_layer_get_layer(tlayer));
+    row->text_layer = tlayer;
+  }
   
-  //DAY STATS LAYER  
-  daystats_layer = layer_create(GRect(0, current_y, 144, stats_vyska));
-  layer_set_update_proc(daystats_layer, &update_daystats_layer_callback);
-  layer_add_child(window_layer, daystats_layer);
-  layer_mark_dirty(daystats_layer);
-  //--
-  
-  current_y += stats_vyska;
-  
-  //WEEK STATS LAYER
-  weekstats_layer = layer_create(GRect(0, current_y, 144, stats_vyska));
-  layer_set_update_proc(weekstats_layer, &update_weekstats_layer_callback);
-  layer_add_child(window_layer, weekstats_layer);
-  layer_mark_dirty(weekstats_layer);
-  
-  current_y += stats_vyska;
-  
-  //DATA CHANGED LAYER
-  date_changed_layer = text_layer_create(GRect(0, current_y, 144, date_vyska));
-  text_layer_set_text_color(date_changed_layer, GColorWhite);
-  text_layer_set_background_color(date_changed_layer, GColorBlack);
-  text_layer_set_font(date_changed_layer, fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD));
-  text_layer_set_text_alignment(date_changed_layer, GTextAlignmentCenter);
-  layer_add_child(window_layer, text_layer_get_layer(date_changed_layer));
-  text_layer_set_overflow_mode(date_changed_layer, GTextOverflowModeFill );  
-  text_layer_set_text(date_changed_layer, "24.5.2014 21:00");
-  
-  
-  
+  return;
+  //**********************************************************************
+  /*
   const char * weekstatsinit= readStringFromStorage(WEEKSTATS_KEY, weekstats_buffer, "...");
   const char * headinginit = readStringFromStorage(HEADING_KEY, heading_buffer, " ");
   const char * datechangeinit =  readStringFromStorage(DATECHANGE_KEY, datechange_buffer, " ");
   const char * daystatsinit = readStringFromStorage(DAYSTATS_KEY, daystats_buffer, "Waiting for data");
 
- /* 
-  APP_LOG(APP_LOG_LEVEL_INFO, "init HEADING into %s", headinginit);   
-  APP_LOG(APP_LOG_LEVEL_INFO, "init DAY STATS into %s", daystatsinit);   
-  APP_LOG(APP_LOG_LEVEL_INFO, "init WEEK STATYS into %s", weekstatsinit);   
-  APP_LOG(APP_LOG_LEVEL_INFO, "init DATECHANGE into %s", datechangeinit);   
-  */
+  
   Tuplet initial_values[] = {
     TupletCString(WEEKSTATS_KEY,weekstatsinit),
     TupletCString(HEADING_KEY, headinginit),
@@ -291,27 +207,27 @@ static void window_load(Window *window)
     TupletCString(DAYSTATS_KEY, daystatsinit),
     TupletInteger(DATA_REQUEST_KEY, 0),    
   };
+  
   //ARRAY_LENGTH(initial_values)
    app_sync_init(&sync, sync_buffer, BUFFER_SIZE, initial_values,  ARRAY_LENGTH(initial_values),
       sync_tuple_changed_callback, sync_error_callback, NULL);
-  
- 
+   
   //first send_cmd triggered ASAP
   timer = app_timer_register(1000, (AppTimerCallback) send_cmd, NULL);
+  */
 }
 
 
 //***********************UNLOAD*************
 static void window_unload(Window *window)
-{ 
-  
-  //app_timer_cancel(timer);
-  app_sync_deinit(&sync);
-  
-  text_layer_destroy(heading_layer);
-  text_layer_destroy(date_changed_layer);
-   
-  
+{   
+  //app_timer_cancel(timer);  
+  //app_sync_deinit(&sync);
+  for(int i =0; i < rows_count; i++)
+  {
+    struct TextRow* row = getTextRowById(i);
+    text_layer_destroy(row->text_layer);
+  } 
 }
 
 //*********** INIT **************************
@@ -330,11 +246,8 @@ static void init(void)
 }
 
 //***************DEINIT*******************
-static void deinit(void) {
-  layer_destroy(daystats_layer);
-  layer_destroy(weekstats_layer);
-  window_destroy(window);
-  
+static void deinit(void) {  
+  window_destroy(window);  
 }
 
 //***************MAIN*******************
