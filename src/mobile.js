@@ -1,7 +1,8 @@
 var configuration,lastdata;
 Pebble.addEventListener("ready",
                         function(e) {
-                          setEndpoint();
+                          //setEndpoint(); TODO!!! CHANGE
+                          localStorage.endpoint = "http://tomas-pebble.kbc-devel-02.keboola.com/app_dev.php/pebble";
                           configuration = {};                          
                           if (localStorage.configuration) 
                             configuration = JSON.parse(localStorage.configuration);
@@ -15,11 +16,10 @@ Pebble.addEventListener("ready",
                             lastdata = JSON.parse(localStorage.lastdata);
                             else
                             lastdata = {                              
-                              "heading": " ",
-                              "daystats": "No Data",
-                              "weekstats":" ",
-                              "datechange":" "
-                              
+                              "0": " ",
+                              "1": "No Data",
+                              "2":" ",
+                              "3":" "                              
                             }; 
                           
                           
@@ -58,59 +58,23 @@ function setEndpoint()
 
 function sendAndStore(what)
 {
-  console.log("sending " + JSON.stringify(what));
+  //console.log("sending " + JSON.stringify(what));
     Pebble.sendAppMessage(
-      {
-            "HEADING":what.heading,
-            "DAYSTATS":what.daystats ,
-            "WEEKSTATS":what.weekstats,
-            "DATECHANGE":what.datechange
-        });
-  
-     lastdata.heading = what.heading;
-     lastdata.daystats = what.daystats;
-     lastdata.weekstats = what.weekstats;
-     lastdata.datechange = what.datechange;
-     lastdata.number1 = what.number1;
-     lastdata.number2 = what.number2;
-  
-  localStorage.lastdata = JSON.stringify(lastdata);   
-  
-     
-}
-
-// Arguments: number to round, number of decimal places
-function roundNumber(rnum, rlength) { 
-    var newnumber = Math.round(rnum * Math.pow(10, rlength)) / Math.pow(10, rlength);
-    return newnumber;
-}
-
-function isNumber(n) {
-    return !isNaN(parseFloat(n)) && isFinite(n);
+      what,
+  function(e) {    
+      
+  },
+  function(e) {
+    console.log("Unable to deliver message with transactionId=" + e.data.transactionId + " Error is: " + e.error.message);  
+      
   }
-
-
-function myPercentFormat(number){
-  if(isNumber(number))
-    {
-      var res = roundNumber(number,2);
-      var sign = res?res<0?-1:1:0;
-      var signStr = "";
-      if(sign > 0)
-        signStr = "+";     
-      return signStr + res.toString();
-    }
-  return number;
+);
+  
+  lastdata = what;  
+  localStorage.lastdata = JSON.stringify(lastdata);     
 }
 
-function  NA(val)
-{
-  if(val === undefined || val ===null)
-    {
-      return "n/a";
-    }
-  return val;
-}
+
 function fetchData()
 {
   //if we setup active connection to off we do nothing OR we dont have token setup yet
@@ -123,11 +87,11 @@ function fetchData()
  
   var req = new XMLHttpRequest();
   var response;
-  var heading, daystats, weekstats, datechange;
+ 
 
   
-  req.open('GET', localStorage.endpoint + "/stats", true);  
-  req.setRequestHeader('X-StorageApi-Token', configuration.token);
+  req.open('GET', localStorage.endpoint + "/stats/1", true);  
+  req.setRequestHeader('X-iot-Token', configuration.token);
   req.timeout = 60000;
   
   console.log("request sent");
@@ -135,28 +99,38 @@ function fetchData()
     console.log ("onload triggered: ");
     if (req.readyState == 4) {
       if (req.status == 200 && req.responseText)
-      {
-        
-        console.log("GOT FROM SERVER:" + req.responseText);
+      {        
+        console.log("GOT FROM SERVER:" + req.responseText);        
         response =  {};              
         response = JSON.parse(req.responseText);        
         if (response == {} )
           return;
         
-        heading = NA(response.heading);
-        datechange = new Date(response.changed).toLocaleString();
-        var unit1 = response.unit1 ?  response.unit1 : "";
-        var unit2 = response.unit2 ?  response.unit2 : "";
-        daystats =  NA(response.title1) + " (" + myPercentFormat(NA(response.percent1))  + "%)\n" + NA(response.number1) + unit1;
-        weekstats = NA(response.title2) + " (" + myPercentFormat(NA(response.percent2))  + "%)\n" + NA(response.number2) + unit2;
+        var maxchanged = "";        
+        var result = {};
+        for (var i in response) {
+           var row = response[i];
+           result[row.rowid] = row.value;
+           var page = i/6;
+           var drowid = 200 + page;
+           if((i % 6) === 0)
+             {
+               maxchanged = row.changed;
+               result[drowid.toString()] = maxchanged; 
+             }
+            else
+              {
+                if(maxchanged < row.changed)
+                  {
+                    maxchanged = row.changed;                                        
+                    result[drowid.toString()] = maxchanged;                    
+                  }
+              }
+
+         }       
         
-        var maxsize= 256;
-        sendAndStore({
-            "heading":heading.substring(0,maxsize),
-            "daystats":daystats.substring(0,maxsize),
-            "weekstats":weekstats.substring(0,maxsize),
-            "datechange":datechange,
-        });
+       
+        sendAndStore(result);
                
       }
       else 
@@ -175,7 +149,7 @@ function fetchData()
 
 Pebble.addEventListener("appmessage",
                         function(e) {
-                          console.log("message recieved");                               
+                          //console.log("message recieved");                               
                           if ( Pebble.getAccountToken() !== "")
                             fetchData();
                         });
