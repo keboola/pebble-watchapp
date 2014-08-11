@@ -2,7 +2,7 @@ var configuration,lastdata;
 Pebble.addEventListener("ready",
                         function(e) {
                           //setEndpoint(); TODO!!! CHANGE
-                          localStorage.endpoint = "http://tomas-pebble.kbc-devel-02.keboola.com/app_dev.php/pebble";
+                          localStorage.endpoint = setEndpoint();
                           configuration = {};                          
                           if (localStorage.configuration) 
                             configuration = JSON.parse(localStorage.configuration);
@@ -33,6 +33,7 @@ Pebble.addEventListener("ready",
 
 function setEndpoint()
 {
+  return "http://tomas-pebble.kbc-devel-02.keboola.com/app_dev.php/pebble";
   var req = new XMLHttpRequest();
   var response;
   req.open('GET', "https://connection.keboola.com/v2/storage", false);  
@@ -191,7 +192,8 @@ Pebble.addEventListener("webviewclosed",
   var string = JSON.stringify(
       {
         "name":configuration.name,
-        "email":configuration.email
+        "email":configuration.email,
+        "connected":configuration.connection
       }
    );                                           
   req.open('POST', localStorage.endpoint + "/watches/" + watchid, false); 
