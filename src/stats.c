@@ -160,7 +160,7 @@ static void sync_tuple_changed_callback(const uint32_t key, const Tuple* new_tup
     if(key < 400 && strcmp(new_tuple->value->cstring ,"") == 0)
       return;
   
-       APP_LOG(APP_LOG_LEVEL_INFO, "tuple_changed: %d: %s", (int)key, new_tuple->value->cstring);     
+      // APP_LOG(APP_LOG_LEVEL_INFO, "tuple_changed: %d: %s", (int)key, new_tuple->value->cstring);     
       writeStringToStorage(key, new_tuple->value->cstring);
       //update row/pages values
       if((int)key < max_rows_count )
@@ -323,7 +323,7 @@ static void window_load(Window *window)
   //updateDisplayForCurrentPage();
   //first send_cmd triggered ASAP
   timer = app_timer_register(1000, (AppTimerCallback) send_cmd, NULL);
-  
+  updateDisplayForCurrentPage();
   
  
 }

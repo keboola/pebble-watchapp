@@ -9,7 +9,9 @@ Pebble.addEventListener("ready",
                             else
                             configuration = {
                               "connection":"on",
-                              "token":""                              
+                              "token":"",      
+                              "name":"",
+                              "email":"email"
                             }; 
                           
                           if (localStorage.lastdata) 
@@ -126,9 +128,7 @@ function fetchData()
                     result[drowid.toString()] = maxchanged;                    
                   }
               }
-
-         }       
-        
+         }          
        
         sendAndStore(result);
                
@@ -145,8 +145,6 @@ function fetchData()
   
 }
 
-
-
 Pebble.addEventListener("appmessage",
                         function(e) {
                           //console.log("message recieved");                               
@@ -160,7 +158,7 @@ if(configuration)
   {
     console.log("CONFIGURATION IS:" +JSON.stringify(configuration));
     var configurl;
-    configurl = "https://s3.amazonaws.com/kbc-apps.keboola.com/pebble/pebble-config.htm?token="+ configuration.token +"&connection=" + configuration.connection;
+    configurl = "https://s3.amazonaws.com/kbc-apps.keboola.com/pebble/pebble-config.htm?token="+ configuration.token +"&connection=" + configuration.connection+"&name=" + configuration.name+"&email=" + configuration.email;
     console.log("openning config URL:" + configurl);
 Pebble.openURL(configurl);
   }
@@ -176,8 +174,46 @@ Pebble.addEventListener("webviewclosed",
                                            console.log("got reponse:" + e.response);                                    
                                            configuration.token = setup.token;
                                            configuration.connection = setup.connection;
+                                           configuration.name = setup.name;
+                                           configuration.email = setup.email;
                                            localStorage.configuration= JSON.stringify(configuration);   
-                                           fetchData();
+                                           
+                                           
+                                           
+  var watchid = Pebble.getAccountToken();
+  if(watchid === "")
+    {
+    Pebble.showSimpleNotificationOnPebble("Register error", "User not logged into Pebble Watch.");
+    return;
+    } 
+                                           
+  var req = new XMLHttpRequest();  
+  var string = JSON.stringify(
+      {
+        "name":configuration.name,
+        "email":configuration.email
+      }
+   );                                           
+  req.open('POST', localStorage.endpoint + "/watches/" + watchid, false); 
+  req.setRequestHeader('X-iot-Token', configuration.token);
+  req.setRequestHeader('Content-type','application/json; charset=utf-8');
+  req.setRequestHeader("Content-length", string.length);                                           
+  req.onload  = function (e) {
+    console.log ("onload triggered: ");
+    if (req.readyState == 4) {
+      if (req.status == 200 && req.responseText)
+      {       
+        fetchData();
+       
+      }
+      else 
+      {
+        console.log("Error " + req.responseText);
+        Pebble.showSimpleNotificationOnPebble("Register Error", "Could not register user,contact support@keboola.com" + req.status.toString());
+      }
+    }
+  };
+  req.send(string);
                                          
                                          }
                                          else
