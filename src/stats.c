@@ -242,7 +242,7 @@ static void window_load(Window *window)
   
 
    Tuplet initial_values[] = {
-    TupletCString(0,""),
+    TupletCString(0,"Loading data..."),
     TupletCString(1, ""),
     TupletCString(2,""),
     TupletCString(3, ""),
