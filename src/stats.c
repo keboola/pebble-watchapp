@@ -299,23 +299,7 @@ static void window_load(Window *window)
     TupletInteger(DATA_REQUEST_KEY, 0),    
   };
   
- /*
-  const char * weekstatsinit= readStringFromStorage(WEEKSTATS_KEY, weekstats_buffer, "...");
-  const char * headinginit = readStringFromStorage(HEADING_KEY, heading_buffer, " ");
-  const char * datechangeinit =  readStringFromStorage(DATECHANGE_KEY, datechange_buffer, " ");
-  const char * daystatsinit = readStringFromStorage(DAYSTATS_KEY, daystats_buffer, "Waiting for data");
-
-  
-  Tuplet initial_values[] = {
-    TupletCString(WEEKSTATS_KEY,weekstatsinit),
-    TupletCString(HEADING_KEY, headinginit),
-    TupletCString(DATECHANGE_KEY,datechangeinit),
-    TupletCString(DAYSTATS_KEY, daystatsinit),
-    TupletInteger(DATA_REQUEST_KEY, 0),    
-  };
-   
-*/
-  
+ 
   //ARRAY_LENGTH(initial_values)
    app_sync_init(&sync, sync_buffer, BUFFER_SIZE, initial_values,  ARRAY_LENGTH(initial_values),
       sync_tuple_changed_callback, sync_error_callback, NULL);
@@ -401,7 +385,9 @@ static void deinit(void) {
 
 //***************MAIN*******************
 int main(void) {
+  APP_LOG(APP_LOG_LEVEL_INFO,"before init");
   init();
+  APP_LOG(APP_LOG_LEVEL_INFO,"after init"); 
   app_event_loop();
   deinit();
 }

@@ -1,11 +1,5 @@
 {
-    "appKeys": {
-        "DATA_REQUEST": 4,
-        "DATECHANGE": 1,
-        "DAYSTATS": 2,
-        "HEADING": 0,
-        "WEEKSTATS": 3
-    },
+    "appKeys": {},
     "capabilities": [
         "configurable"
     ],

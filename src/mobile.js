@@ -1,8 +1,10 @@
 var configuration,lastdata;
+var endpoint;
 Pebble.addEventListener("ready",
                         function(e) {
                           //setEndpoint(); TODO!!! CHANGE
-                          localStorage.endpoint = setEndpoint();
+                          setEndpoint();
+                          
                           configuration = {};                          
                           if (localStorage.configuration) 
                             configuration = JSON.parse(localStorage.configuration);
@@ -32,8 +34,8 @@ Pebble.addEventListener("ready",
                         });
 
 function setEndpoint()
-{
-  return "http://tomas-pebble.kbc-devel-02.keboola.com/app_dev.php/pebble";
+{   
+ // return "http://tomas-pebble.kbc-devel-02.keboola.com/app_dev.php/pebble";
   var req = new XMLHttpRequest();
   var response;
   req.open('GET', "https://connection.keboola.com/v2/storage", false);  
@@ -49,6 +51,7 @@ function setEndpoint()
           if(component.id == "pebble")    
             {
             localStorage.endpoint = component.uri;
+            endpoint = component.uri;
             console.log("pebble backend url set to:" + localStorage.endpoint);
             }
         });
@@ -61,7 +64,7 @@ function setEndpoint()
 
 function sendAndStore(what)
 {
-  //console.log("sending " + JSON.stringify(what));
+  
     Pebble.sendAppMessage(
       what,
   function(e) {    
@@ -77,27 +80,31 @@ function sendAndStore(what)
   localStorage.lastdata = JSON.stringify(lastdata);     
 }
 
-
+function giveMeEndpoint()
+{
+  return endpoint;
+ 
+}
 function fetchData()
 {
+  
   //if we setup active connection to off we do nothing OR we dont have token setup yet
   if(configuration.connection !== "on" || configuration.token === "")
     {
       if ( configuration.token === "")
-        Pebble.showSimpleNotificationOnPebble("Connection Error", "Storage api token is not set");
+        Pebble.showSimpleNotificationOnPebble("Connection Error", "Access token is not set");
       return;    
     }
  
   var req = new XMLHttpRequest();
   var response;
- 
-
+  var getstatsurl = giveMeEndpoint() + "/stats/" + Pebble.getAccountToken();
   
-  req.open('GET', localStorage.endpoint + "/stats/1", true);  
+  req.open('GET',getstatsurl , true);  
   req.setRequestHeader('X-iot-Token', configuration.token);
   req.timeout = 60000;
   
-  console.log("request sent");
+  console.log("request sent to " + getstatsurl);
 	req.onload  = function (e) {
     console.log ("onload triggered: ");
     if (req.readyState == 4) {
@@ -166,6 +173,8 @@ Pebble.openURL(configurl);
   
   
 });
+
+
 Pebble.addEventListener("webviewclosed",
                                     function(e) {                                       
                                        var setup;
@@ -195,16 +204,19 @@ Pebble.addEventListener("webviewclosed",
         "email":configuration.email,
         "connected":configuration.connection
       }
-   );                                           
-  req.open('POST', localStorage.endpoint + "/watches/" + watchid, false); 
+   );     
+  console.log("registering with " + string);                                           
+  console.log("registering to " + giveMeEndpoint() + "/watches/" + watchid);
+  req.open('POST', giveMeEndpoint() + "/watches/" + watchid, true); 
   req.setRequestHeader('X-iot-Token', configuration.token);
   req.setRequestHeader('Content-type','application/json; charset=utf-8');
   req.setRequestHeader("Content-length", string.length);                                           
   req.onload  = function (e) {
-    console.log ("onload triggered: ");
+    console.log ("onload triggered post watch: ");
     if (req.readyState == 4) {
-      if (req.status == 200 && req.responseText)
+      if (req.status == 200)
       {       
+        console.log("status is 200:should be registered fetching data..");
         fetchData();
        
       }
@@ -217,7 +229,7 @@ Pebble.addEventListener("webviewclosed",
   };
   req.send(string);
                                          
-                                         }
+   }
                                          else
                                          {
                                             console.log("setup got cancelled");
