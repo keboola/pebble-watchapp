@@ -1,5 +1,6 @@
 var configuration,lastdata;
 var endpoint;
+
 Pebble.addEventListener("ready",
                         function(e) {
                           //setEndpoint(); TODO!!! CHANGE
@@ -20,16 +21,21 @@ Pebble.addEventListener("ready",
                             lastdata = JSON.parse(localStorage.lastdata);
                             else
                             lastdata = {                              
-                              "0": " ",
-                              "1": "No Data",
-                              "2":" ",
-                              "3":" "                              
+                              "0": "Connected",
+                              "1": "Please register",
+                              "2": "to display data.",
+                              "3": "",
+                              "4": "",
+                              "5": "",
+                              "6": "",
                             }; 
                           
                           
                           console.log("configuration loaded!" + JSON.stringify(configuration));            
                           console.log("lastdata loaded!" + JSON.stringify(lastdata));   
-                          sendAndStore(lastdata);                      
+                          sendAndStore(lastdata);  
+                          //initCommunication();
+                          fetchData();
                          
                         });
 
@@ -57,8 +63,28 @@ function setEndpoint()
         });
       }
     }
+     else 
+      {
+        console.log("Error setting endpoint " + req.status);
+        Pebble.showSimpleNotificationOnPebble("Connection Error", "failed connect to KBC(" + req.status.toString() + ")");
+      }
   };
   req.send(null);
+  
+}
+
+function initCommunication()
+{
+    Pebble.sendAppMessage(
+      {"400":2},
+  function(e) {    
+    console.log("Communication initialized");
+      
+  },
+  function(e) {
+    console.log("Unable to init communication. Error is: " + e.error.message);  
+      
+  });
   
 }
 
@@ -126,14 +152,14 @@ function fetchData()
            if((i % 6) === 0)
              {
                maxchanged = row.changed;
-               result[drowid.toString()] = maxchanged; 
+               result[drowid.toString()] = maxchanged;
              }
             else
               {
                 if(maxchanged < row.changed)
                   {
                     maxchanged = row.changed;                                        
-                    result[drowid.toString()] = maxchanged;                    
+                    result[drowid.toString()] = maxchanged;
                   }
               }
          }          
@@ -217,6 +243,17 @@ Pebble.addEventListener("webviewclosed",
       if (req.status == 200)
       {       
         console.log("status is 200:should be registered fetching data..");
+        sendAndStore(
+          {
+          "0":"Connected",
+          "1":"Successfully",
+          "2":"registered!",
+          "3":"Waiting for data",
+          "4":"",
+          "5":"",
+          "6":""
+          }
+          );
         fetchData();
        
       }
@@ -224,13 +261,20 @@ Pebble.addEventListener("webviewclosed",
       {
         console.log("Error " + req.responseText);
         Pebble.showSimpleNotificationOnPebble("Register Error", "Could not register user,contact support@keboola.com" + req.status.toString());
+        sendAndStore({"0": "Connected",
+                      "1": "Please register",
+                      "2": "to display data.",
+                      "3": "",
+                      "4": "",
+                      "5": "",
+                      "6": ""});
       }
     }
   };
   req.send(string);
                                          
    }
-                                         else
+ else
                                          {
                                             console.log("setup got cancelled");
                                          }

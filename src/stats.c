@@ -20,13 +20,13 @@ struct TextRow
 };
 
 static struct TextRow matrix[] = {
-  {NULL, "FIRST ROW: 123456 KC", HEADER}, //row 1 - HEADER
-  {NULL, "SECOND: 12345678 KC", ROW}, //row 2
-  {NULL, "THIRD: 123124920 KC", ROW}, //row 3
-  {NULL, "FOURTH: 123333 KC", ROW}, //row 4
-  {NULL, "FIFTH: 22 %", ROW}, //row 5
-  {NULL, "SIXTH: 44%", ROW},  //row 6  
-  {NULL, "SEVENTH: date changed", CHANGEDATE}  //row 7  
+  {NULL, "", HEADER}, //row 1 - HEADER
+  {NULL, "", ROW}, //row 2
+  {NULL, "", ROW}, //row 3
+  {NULL, "", ROW}, //row 4
+  {NULL, "", ROW}, //row 5
+  {NULL, "", ROW},  //row 6  
+  {NULL, "", CHANGEDATE}  //row 7  
 };
 static int current_page = 0;
 static int max_page = 0;
@@ -154,11 +154,15 @@ static void updateDisplayForCurrentPage()
   text_layer_set_text(row->text_layer, newtext);
   
 }
-
+static void send_cmd();
 //******************TUPLE CHANGE CALLBACK*****************************************
 static void sync_tuple_changed_callback(const uint32_t key, const Tuple* new_tuple, const Tuple* old_tuple, void* context) {
     if(key < 400 && strcmp(new_tuple->value->cstring ,"") == 0)
       return;
+  
+     //phone app asking to init communication
+     if(key == DATA_REQUEST_KEY && new_tuple->value->uint8 == 2 && old_tuple->value->uint8 == 0)
+       send_cmd();
   
       // APP_LOG(APP_LOG_LEVEL_INFO, "tuple_changed: %d: %s", (int)key, new_tuple->value->cstring);     
       writeStringToStorage(key, new_tuple->value->cstring);
@@ -197,6 +201,7 @@ static void send_cmd(void) {
   }
   dict_write_tuplet(iter, &value);
   dict_write_end(iter);
+  APP_LOG(APP_LOG_LEVEL_INFO,"sending data request key");
   app_message_outbox_send();  
   timer = app_timer_register(SYNC_TIME_MS, (AppTimerCallback) send_cmd, NULL);  
 }
@@ -242,9 +247,9 @@ static void window_load(Window *window)
   
 
    Tuplet initial_values[] = {
-    TupletCString(0,"Loading data..."),
-    TupletCString(1, ""),
-    TupletCString(2,""),
+    TupletCString(0,""),
+    TupletCString(1," Connecting "),
+    TupletCString(2,"to the phone..."),
     TupletCString(3, ""),
     TupletCString(4, ""),
     TupletCString(5, ""),
@@ -306,7 +311,7 @@ static void window_load(Window *window)
   
   //updateDisplayForCurrentPage();
   //first send_cmd triggered ASAP
-  timer = app_timer_register(1000, (AppTimerCallback) send_cmd, NULL);
+  timer = app_timer_register(30000, (AppTimerCallback) send_cmd, NULL);
   updateDisplayForCurrentPage();
   
  
@@ -385,9 +390,9 @@ static void deinit(void) {
 
 //***************MAIN*******************
 int main(void) {
-  APP_LOG(APP_LOG_LEVEL_INFO,"before init");
+  //APP_LOG(APP_LOG_LEVEL_INFO,"before init");
   init();
-  APP_LOG(APP_LOG_LEVEL_INFO,"after init"); 
+  //APP_LOG(APP_LOG_LEVEL_INFO,"after init"); 
   app_event_loop();
   deinit();
 }
