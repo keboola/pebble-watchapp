@@ -19,7 +19,7 @@
     "shortName": "Keboola Stats",
     "uuid": "29fdfd12-3c08-463d-8f53-f9823d7a15fc",
     "versionCode": 1,
-    "versionLabel": "1.0",
+    "versionLabel": "1.5",
     "watchapp": {
         "watchface": false
     }

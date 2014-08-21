@@ -20,12 +20,12 @@ struct TextRow
 };
 
 static struct TextRow matrix[] = {
-  {NULL, "", HEADER}, //row 1 - HEADER
-  {NULL, "", ROW}, //row 2
+  {NULL, "", HEADER}, //row 0 - HEADER
+  {NULL, " Connecting ", ROW}, //row 1
+  {NULL, "to the phone...", ROW}, //row 2
   {NULL, "", ROW}, //row 3
   {NULL, "", ROW}, //row 4
-  {NULL, "", ROW}, //row 5
-  {NULL, "", ROW},  //row 6  
+  {NULL, "", ROW},  //row 5  
   {NULL, "", CHANGEDATE}  //row 7  
 };
 static int current_page = 0;
@@ -224,7 +224,7 @@ static void window_load(Window *window)
     {
     struct TextRow *row = getTextRowById(i);
     //read cached value and store it to row->text, otherwise return default value
-    const char * inittext = row->text; //readStringFromStorage(i, row->text,row->text);
+    //const char * inittext = ; //readStringFromStorage(i, row->text,row->text);
     TextLayer * tlayer = text_layer_create(GRect(0, current_y, 144, vyskaRiadku));     
     if(row->format == HEADER || row->format == CHANGEDATE)
     {
@@ -234,7 +234,7 @@ static void window_load(Window *window)
     text_layer_set_font(tlayer, fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD ));
     text_layer_set_text_alignment(tlayer, GTextAlignmentCenter);
     text_layer_set_overflow_mode(tlayer, GTextOverflowModeFill ); 
-    text_layer_set_text(tlayer, inittext);
+    text_layer_set_text(tlayer, row->text);
     layer_add_child(window_layer, text_layer_get_layer(tlayer));
     row->text_layer = tlayer;
   }
@@ -245,14 +245,26 @@ static void window_load(Window *window)
   int max_pages_number = (max_rows_count / (rows_count - 1));
   int keys_count = max_rows_count + max_pages_number + 1;
   
-
+  readStringFromStorage(0,matrix[0].text,matrix[0].text);
+  readStringFromStorage(1,matrix[1].text,matrix[1].text);
+  readStringFromStorage(2,matrix[2].text,matrix[2].text);
+  readStringFromStorage(3,matrix[3].text,matrix[3].text);
+  readStringFromStorage(4,matrix[4].text,matrix[4].text);
+  readStringFromStorage(5,matrix[5].text,matrix[5].text);
+  
+  //200 for the changed column of the first(0) page
+  readStringFromStorage(200,matrix[6].text,matrix[6].text);
+  
+  
+  
+  
    Tuplet initial_values[] = {
-    TupletCString(0,""),
-    TupletCString(1," Connecting "),
-    TupletCString(2,"to the phone..."),
-    TupletCString(3, ""),
-    TupletCString(4, ""),
-    TupletCString(5, ""),
+    TupletCString(0, matrix[0].text),
+    TupletCString(1, matrix[1].text),
+    TupletCString(2, matrix[2].text),
+    TupletCString(3, matrix[3].text),
+    TupletCString(4, matrix[4].text),
+    TupletCString(5, matrix[5].text),
     TupletCString(6, ""),
     TupletCString(7, ""),
     TupletCString(8, ""),
@@ -293,7 +305,7 @@ static void window_load(Window *window)
     TupletCString(40,""),
      
     //date change ids
-    TupletCString(200,""),
+    TupletCString(200,matrix[6].text),
     TupletCString(201, ""),
     TupletCString(202,""),
     TupletCString(203, ""),

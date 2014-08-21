@@ -17,11 +17,14 @@ Pebble.addEventListener("ready",
                               "email":"email"
                             }; 
                           
+                          if( localStorage.maxPage === undefined )
+                            localStorage.maxPage = -1;
+                          
                           if (localStorage.lastdata) 
                             lastdata = JSON.parse(localStorage.lastdata);
                             else
                             lastdata = {                              
-                              "0": "Connected",
+                              "0": "Connected To Phone",
                               "1": "Please register",
                               "2": "to display data.",
                               "3": "",
@@ -117,7 +120,7 @@ function fetchData()
   //if we setup active connection to off we do nothing OR we dont have token setup yet
   if(configuration.connection !== "on" || configuration.token === "")
     {
-      if ( configuration.token === "")
+      if ( configuration.token === "" && configuration.connection === "on")
         Pebble.showSimpleNotificationOnPebble("Connection Error", "Access token is not set");
       return;    
     }
@@ -144,15 +147,17 @@ function fetchData()
         
         var maxchanged = "";        
         var result = {};
+        var maxRowIdUsed = 0;
         for (var i in response) {
            var row = response[i];
-           result[row.rowid] = row.value;
+           result[row.rowid] = row.value;           
+           maxRowIdUsed = row.rowid;
            var page = i/6;
            var drowid = 200 + page;
            if((i % 6) === 0)
              {
                maxchanged = row.changed;
-               result[drowid.toString()] = maxchanged;
+               result[drowid.toString()] = maxchanged;              
              }
             else
               {
@@ -162,10 +167,17 @@ function fetchData()
                     result[drowid.toString()] = maxchanged;
                   }
               }
-         }          
-       
+         }   
+        //fill the gap in between the missing rows and at least fill the first screen if it has not been filled yet
+        for(i=0; i<maxRowIdUsed || (i < 6 && localStorage.maxPage === -1); i++)
+        {
+          var key = i.toString();
+          if(result[key] === undefined)
+            result[key] = "";
+        }
+        localStorage.maxPage = maxRowIdUsed / 6;
         sendAndStore(result);
-               
+        
       }
       else 
       {
@@ -181,7 +193,7 @@ function fetchData()
 
 Pebble.addEventListener("appmessage",
                         function(e) {
-                          //console.log("message recieved");                               
+                          console.log("watch->phone message recieved");                               
                           if ( Pebble.getAccountToken() !== "")
                             fetchData();
                         });
@@ -245,7 +257,7 @@ Pebble.addEventListener("webviewclosed",
         console.log("status is 200:should be registered fetching data..");
         sendAndStore(
           {
-          "0":"Connected",
+          "0":"Connected To KBC",
           "1":"Successfully",
           "2":"registered!",
           "3":"Waiting for data",
@@ -254,6 +266,7 @@ Pebble.addEventListener("webviewclosed",
           "6":""
           }
           );
+        localStorage.maxPage = -1;
         fetchData();
        
       }
@@ -261,7 +274,7 @@ Pebble.addEventListener("webviewclosed",
       {
         console.log("Error " + req.responseText);
         Pebble.showSimpleNotificationOnPebble("Register Error", "Could not register user,contact support@keboola.com" + req.status.toString());
-        sendAndStore({"0": "Connected",
+        sendAndStore({"0": "Connected To Phone",
                       "1": "Please register",
                       "2": "to display data.",
                       "3": "",
