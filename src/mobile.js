@@ -55,9 +55,10 @@ function setEndpoint()
       {       
         response =  {};              
         response = JSON.parse(req.responseText);
+        console.log(response);
         if(response.components)
           response.components.forEach(function(component) {
-          if(component.id == "pebble")    
+          if(component.name == "wr-iot")    
             {
             localStorage.endpoint = component.uri;
             endpoint = component.uri;
